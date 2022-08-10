@@ -1,0 +1,13 @@
+[package]
+name = "bin"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+indy-vdr = "0.3.4"
+log = "0.4"
+env_logger = "0.9"
+futures = "0.3"
+reqwest = { version = "0.11.11", features = ["blocking", "json"] }
