@@ -1,5 +1,5 @@
 [package]
-name = "bin"
+name = "indy_ordering"
 version = "0.1.0"
 edition = "2021"
 
@@ -11,3 +11,5 @@ log = "0.4"
 env_logger = "0.9"
 futures = "0.3"
 reqwest = { version = "0.11.11", features = ["blocking", "json"] }
+serde_json = "1.0"
+serde = "1.0"

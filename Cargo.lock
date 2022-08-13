@@ -77,17 +77,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "904dfeac50f3cdaba28fc6f57fdcddb75f49ed61346676a78c4ffe55877802fd"
 
 [[package]]
-name = "bin"
-version = "0.1.0"
-dependencies = [
- "env_logger 0.9.0",
- "futures",
- "indy-vdr",
- "log",
- "reqwest",
-]
-
-[[package]]
 name = "bitflags"
 version = "1.3.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -737,6 +726,19 @@ version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f4aa37c6fbc387666de081f7e549e20aad2e165d545e7ba2cdb3c9a5a637c25a"
 dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "indy_ordering"
+version = "0.1.0"
+dependencies = [
+ "env_logger 0.9.0",
+ "futures",
+ "indy-vdr",
+ "log",
+ "reqwest",
  "serde",
  "serde_json",
 ]
