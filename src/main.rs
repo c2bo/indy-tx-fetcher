@@ -1,6 +1,6 @@
 use futures::executor::block_on;
 use indy_vdr::pool::helpers::{perform_ledger_request, perform_refresh};
-use indy_vdr::pool::RequestResult::Reply;
+use indy_vdr::pool::RequestResult::{Failed, Reply};
 use indy_vdr::pool::{Pool, PoolBuilder, PoolTransactions};
 use log::{debug, error, info};
 use reqwest::blocking;
@@ -176,7 +176,14 @@ fn main() {
     // idunion
     let sovreq = req_builder.build_get_revoc_reg_delta_request(None,&RevocationRegistryId("3QowxFtwciWceMFr7WbwnM:4:3QowxFtwciWceMFr7WbwnM:3:CL:2016:BankAccount:CL_ACCUM:6f045d8c-2621-47d2-83b8-289339320eae".to_string()), None, 1628490657).unwrap();
     let (sovres, _) = block_on(perform_ledger_request(&pool, &sovreq)).unwrap();
-    error!("{:?}", sovres);
+    match sovres {
+        Reply(result) => {
+            info!("{}", result);
+        }
+        Failed(err) => {
+            error!("{}", err.to_string());
+        }
+    }
 
     let mut seq_no: u64 = 1;
     let mut ledger_size: Option<u64> = None;
