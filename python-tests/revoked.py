@@ -1,7 +1,7 @@
 #!/usr/bin/python3.5
 import argparse
 
-def main() -> list:
+def main():
     parser = argparse.ArgumentParser("Check for ordering")
     parser.add_argument(
         "--strat_default",
