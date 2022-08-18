@@ -8,10 +8,12 @@ use rocksdb::{IteratorMode, Options, DB};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::error::Error;
+use std::fmt;
+use std::fmt::Formatter;
 use std::path::Path;
 use serde_json::Value;
 use tokio::runtime::Runtime;
-use crate::ledger::python::run_python;
+use crate::ledger::python::{REV_REG_STRATEGY_DEFAULT, REV_REG_STRATEGY_DEMAND, run_python};
 
 pub struct Ledger {
     pub name: String,
@@ -192,7 +194,21 @@ impl Ledger {
                                     issued: issued.to_owned(),
                                     revoked: revoked.to_owned(),
                                     result: res.to_owned(),
+                                    tx: seq_no,
                                 });
+                            }
+
+                            // TODO: Should we sort here? otherwise we will keep on getting repeat results for a state that was already not sorted
+                            let mut res = res.to_owned();
+                            //res.sort();
+                            match rev_reg_state.strategy.as_str() {
+                                REV_REG_STRATEGY_DEFAULT => {
+                                    rev_reg_state.revoked = res
+                                },
+                                REV_REG_STRATEGY_DEMAND => {
+                                    rev_reg_state.issued = res
+                                },
+                                _ => {},
                             }
                         }
                     }
@@ -225,8 +241,25 @@ pub struct RevRegState {
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct OrderingProblem {
-    start_state: RevRegState,
-    issued: Vec<u64>,
-    revoked: Vec<u64>,
-    result: Vec<u64>,
+    pub tx: u64,
+    pub start_state: RevRegState,
+    pub issued: Vec<u64>,
+    pub revoked: Vec<u64>,
+    pub result: Vec<u64>,
+}
+
+impl OrderingProblem {
+    pub fn issuance_by_default(&self) -> bool {
+        return self.start_state.strategy.as_str() == REV_REG_STRATEGY_DEFAULT;
+    }
+}
+
+impl fmt::Display for OrderingProblem {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        if self.issuance_by_default() {
+            write!(f, "[{}] {:?}, {:?}, {:?}, {:?}", self.start_state.strategy, self.start_state.revoked, self.issued, self.revoked, self.result)
+        } else {
+            write!(f, "[{}] {:?}, {:?}, {:?}, {:?}", self.start_state.strategy, self.start_state.issued, self.issued, self.revoked, self.result)
+        }
+    }
 }

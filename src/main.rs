@@ -1,6 +1,6 @@
 mod ledger;
 
-use log::{debug, error, info};
+use log::{info};
 
 fn main() {
     env_logger::init();
@@ -11,5 +11,8 @@ fn main() {
     ledger.sync().unwrap();
     info!("Size after sync: {}", ledger.get_size().unwrap());
     let list = ledger.test_ordering().unwrap();
-    info!("{:?}", list);
+    info!("Got {} results", list.len());
+    for finding in list {
+        info!("[{}]: {}", finding.tx, finding)
+    }
 }

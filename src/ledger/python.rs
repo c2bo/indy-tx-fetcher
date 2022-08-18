@@ -5,7 +5,7 @@ use std::error::Error;
 use std::process::Command;
 
 pub fn run_python(
-    rev_reg_state: &mut RevRegState,
+    rev_reg_state: &RevRegState,
     tx_data: Map<String, Value>,
 ) -> Result<Vec<u64>, Box<dyn Error>> {
     let value = tx_data.get("value").unwrap();
@@ -23,14 +23,14 @@ pub fn run_python(
             for number in rev_reg_state.revoked.to_owned() {
                 output = output.arg(format!("{}", number));
             }
-        }
+        },
         REV_REG_STRATEGY_DEMAND => {
             output = output.args(["--strat_default", "False"]);
             output = output.arg("--issued_old");
             for number in rev_reg_state.issued.to_owned() {
                 output = output.arg(format!("{}", number));
             }
-        }
+        },
         _ => {
             error!("Unknown strategy: {}", rev_reg_state.strategy);
         }
@@ -55,15 +55,6 @@ pub fn run_python(
     let out = String::from_utf8_lossy(&out_raw.stdout).to_string();
     let res: Vec<u64> = out.split_whitespace().map(|x| x.parse().unwrap()).collect();
 
-    match rev_reg_state.strategy.as_str() {
-        REV_REG_STRATEGY_DEFAULT => {
-            rev_reg_state.revoked = res.to_owned();
-        }
-        REV_REG_STRATEGY_DEMAND => {
-            rev_reg_state.issued = res.to_owned();
-        }
-        _ => {}
-    }
     Ok(res)
 }
 
