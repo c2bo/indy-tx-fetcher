@@ -7,6 +7,8 @@ use std::process::Command;
 pub fn run_python(
     rev_reg_state: &RevRegState,
     tx_data: Map<String, Value>,
+    python_bin: &str,
+    python_file: &str,
 ) -> Result<Vec<u64>, Box<dyn Error>> {
     let value = tx_data.get("value").unwrap();
 
@@ -14,8 +16,8 @@ pub fn run_python(
         return Ok(vec![]);
     }
 
-    let mut cmd = Command::new("/usr/bin/python3.5");
-    let mut output = cmd.arg("python-tests/revoked.py");
+    let mut cmd = Command::new(python_bin);
+    let mut output = cmd.arg(python_file);
     match rev_reg_state.strategy.as_str() {
         REV_REG_STRATEGY_DEFAULT => {
             output = output.args(["--strat_default", "True"]);

@@ -11,6 +11,7 @@ use std::error::Error;
 use std::fmt;
 use std::fmt::Formatter;
 use std::path::Path;
+use indy_vdr::ledger::identifiers::RevocationRegistryId;
 use serde_json::Value;
 use tokio::runtime::Runtime;
 use crate::ledger::python::{REV_REG_STRATEGY_DEFAULT, REV_REG_STRATEGY_DEMAND, run_python};
@@ -22,6 +23,12 @@ pub struct Ledger {
     pool: SharedPool,
     db: DB,
 }
+
+const PYTHON_BIN_OLD: &str = "/usr/bin/python3.5";
+const PYTHON_BIN_NEW: &str = "/usr/bin/python3.8";
+
+const PYTHON_PATH_OLD: &str = "python-test/revoked.py";
+const PYTHON_PATH_NEW: &str = "python-test/revoked_new.py";
 
 impl Ledger {
     pub fn new(
@@ -178,28 +185,57 @@ impl Ledger {
                             // continue;
                         }
                         Some(rev_reg_state) => {
-                            let res = run_python(rev_reg_state, tx_data.to_owned()).unwrap();
-                            if !res.is_empty() {
-                                debug!("[{}] Found REV_REG, checked order: {:?}", seq_no, res);
+                            let res_old = run_python(rev_reg_state, tx_data.to_owned(), PYTHON_BIN_OLD, PYTHON_PATH_OLD).unwrap();
+                            if !res_old.is_empty() {
+                                debug!("[{}] Found REV_REG, checked order: {:?}", seq_no, res_old);
                             }
-                            let mut sorted: Vec<u64> = res.to_owned();
+                            // check for unsorted
+                            let mut sorted: Vec<u64> = res_old.to_owned();
                             sorted.sort();
-                            let matching = sorted.eq(&res);
+                            let matching = sorted.eq(&res_old);
                             if !matching {
                                 let value = tx_data.get("value").unwrap();
                                 let issued= convert_vec(value.get("issued").map_or(Vec::<Value>::new(), |x| x.as_array().unwrap().to_owned()));
                                 let revoked= convert_vec(value.get("revoked").map_or(Vec::<Value>::new(), |x| x.as_array().unwrap().to_owned()));
-                                problems.push(OrderingProblem {
+                                let problem = OrderingProblem {
                                     start_state: rev_reg_state.to_owned(),
                                     issued: issued.to_owned(),
                                     revoked: revoked.to_owned(),
-                                    result: res.to_owned(),
+                                    result: res_old.to_owned(),
                                     tx: seq_no,
-                                });
+                                };
+                                problems.push(problem.to_owned());
+                                // test against python3.8 with new python implementation
+                                let res_new = run_python(rev_reg_state, tx_data.to_owned(), PYTHON_BIN_NEW, PYTHON_PATH_NEW).unwrap();
+                                if res_old != res_new {
+                                    error!("Results did not match - seqNo={}: {:?} !=  {:?}", seq_no, res_old, res_new);
+
+                                    // In this case, make sure we are doing things correctly -> get revregdelta from ledger for before/after this tx
+                                    let request_builder = self.pool.get_request_builder();
+                                    let id = tx.result.data.txn.data.get("revocRegDefId").unwrap().as_str().unwrap();
+                                    let timestamp = tx.result.data.txn_metadata.get("txnTime").unwrap().as_i64().unwrap();
+
+                                    let request_before = request_builder.build_get_revoc_reg_delta_request(None, &RevocationRegistryId(id.to_string()), None, timestamp-1).unwrap();
+                                    let (res_before, _) =  self.rt.block_on(perform_ledger_request(&self.pool, &request_before)).unwrap();
+                                    let res_before = match res_before {
+                                        Reply(data) => data,
+                                        _ => {},
+                                    };
+                                    error!("State on ledger before: {}", res_before);
+
+                                    let request_after = request_builder.build_get_revoc_reg_delta_request(None, &RevocationRegistryId(id.to_string()), None, timestamp).unwrap();
+                                    let (res_after,_) =  self.rt.block_on(perform_ledger_request(&self.pool, &request_after)).unwrap();
+                                    let res_after = match res_after {
+                                        Reply(data) => data,
+                                        _ => {},
+                                    };
+                                    error!("State on ledger after: {}", res_after);
+
+                                }
                             }
 
                             // TODO: Should we sort here? otherwise we will keep on getting repeat results for a state that was already not sorted
-                            let mut res = res.to_owned();
+                            let mut res = res_old.to_owned();
                             //res.sort();
                             match rev_reg_state.strategy.as_str() {
                                 REV_REG_STRATEGY_DEFAULT => {
