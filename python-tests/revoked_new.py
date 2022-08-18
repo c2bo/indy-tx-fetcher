@@ -2,7 +2,7 @@
 import argparse
 
 import sys
-sys.path.insert(1, '../py35-compat-set/')
+sys.path.insert(1, 'py35-compat-set/')
 import compat_set
 
 def main():

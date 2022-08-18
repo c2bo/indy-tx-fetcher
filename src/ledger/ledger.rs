@@ -2,8 +2,8 @@ use crate::ledger::transaction::TransactionReply;
 use indy_vdr::pool::helpers::{perform_ledger_request, perform_refresh};
 use indy_vdr::pool::RequestResult::Reply;
 use indy_vdr::pool::{Pool, PoolBuilder, PoolTransactions, SharedPool};
-use log::{debug, error, info};
-use reqwest::blocking;
+use log::{debug, error, info, trace};
+use reqwest;
 use rocksdb::{IteratorMode, Options, DB};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -27,8 +27,8 @@ pub struct Ledger {
 const PYTHON_BIN_OLD: &str = "/usr/bin/python3.5";
 const PYTHON_BIN_NEW: &str = "/usr/bin/python3.8";
 
-const PYTHON_PATH_OLD: &str = "python-test/revoked.py";
-const PYTHON_PATH_NEW: &str = "python-test/revoked_new.py";
+const PYTHON_PATH_OLD: &str = "python-tests/revoked.py";
+const PYTHON_PATH_NEW: &str = "python-tests/revoked_new.py";
 
 impl Ledger {
     pub fn new(
@@ -40,12 +40,16 @@ impl Ledger {
         let rt = Runtime::new()?;
 
         // check genesis File and init indy-vdr pool
-        let resp = blocking::get(genesis_url).unwrap().text().unwrap();
+        let resp = rt.block_on(reqwest::get(genesis_url)).unwrap();
+        let resp = rt.block_on(resp.text()).unwrap();
+
         let genesis_txns = PoolTransactions::from_json(resp.as_str()).unwrap();
         let pool_builder = PoolBuilder::default()
             .transactions(genesis_txns.to_owned())
             .unwrap();
         let pool = pool_builder.into_shared().unwrap();
+
+        // refresh pool
         let (txns, _timing) = rt.block_on(perform_refresh(&pool)).unwrap();
         let pool = if let Some(txns) = txns {
             let builder = {
@@ -159,7 +163,7 @@ impl Ledger {
                     let key = tx.result.data.txn.data["id"].to_owned();
                     let tx_data = tx.result.data.txn.data;
                     let strategy: String = tx_data["value"]["issuanceType"].as_str().unwrap().to_string();
-                    debug!(
+                    trace!(
                         "[{}] Found a REV_REG_DEF transaction: {}",
                         tx.result.seq_no, key
                     );
@@ -209,28 +213,28 @@ impl Ledger {
                                 let res_new = run_python(rev_reg_state, tx_data.to_owned(), PYTHON_BIN_NEW, PYTHON_PATH_NEW).unwrap();
                                 if res_old != res_new {
                                     error!("Results did not match - seqNo={}: {:?} !=  {:?}", seq_no, res_old, res_new);
+                                    error!("{}", problem);
 
                                     // In this case, make sure we are doing things correctly -> get revregdelta from ledger for before/after this tx
                                     let request_builder = self.pool.get_request_builder();
-                                    let id = tx.result.data.txn.data.get("revocRegDefId").unwrap().as_str().unwrap();
+                                    let id = tx_data.get("revocRegDefId").unwrap().as_str().unwrap();
                                     let timestamp = tx.result.data.txn_metadata.get("txnTime").unwrap().as_i64().unwrap();
 
                                     let request_before = request_builder.build_get_revoc_reg_delta_request(None, &RevocationRegistryId(id.to_string()), None, timestamp-1).unwrap();
                                     let (res_before, _) =  self.rt.block_on(perform_ledger_request(&self.pool, &request_before)).unwrap();
                                     let res_before = match res_before {
                                         Reply(data) => data,
-                                        _ => {},
+                                        _ => "".to_string(),
                                     };
-                                    error!("State on ledger before: {}", res_before);
+                                    info!("State on ledger before: {}", res_before);
 
                                     let request_after = request_builder.build_get_revoc_reg_delta_request(None, &RevocationRegistryId(id.to_string()), None, timestamp).unwrap();
                                     let (res_after,_) =  self.rt.block_on(perform_ledger_request(&self.pool, &request_after)).unwrap();
                                     let res_after = match res_after {
                                         Reply(data) => data,
-                                        _ => {},
+                                        _ => "".to_string(),
                                     };
-                                    error!("State on ledger after: {}", res_after);
-
+                                    info!("State on ledger after: {}", res_after);
                                 }
                             }
 
@@ -293,9 +297,9 @@ impl OrderingProblem {
 impl fmt::Display for OrderingProblem {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         if self.issuance_by_default() {
-            write!(f, "[{}] {:?}, {:?}, {:?}, {:?}", self.start_state.strategy, self.start_state.revoked, self.issued, self.revoked, self.result)
+            write!(f, "[{}] revoked={:?}, issued_new={:?}, revoked_new={:?}, result={:?}", self.start_state.strategy, self.start_state.revoked, self.issued, self.revoked, self.result)
         } else {
-            write!(f, "[{}] {:?}, {:?}, {:?}, {:?}", self.start_state.strategy, self.start_state.issued, self.issued, self.revoked, self.result)
+            write!(f, "[{}] issued={:?}, issued_new={:?}, revoked_new={:?}, result={:?}", self.start_state.strategy, self.start_state.issued, self.issued, self.revoked, self.result)
         }
     }
 }
