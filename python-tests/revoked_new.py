@@ -39,12 +39,12 @@ def main():
     strat_default = args.strat_default == 'True'
 
     if strat_default:
-        result_indicies = compat_set.CompatSet(args.revoked_old).difference(compat_set.CompatSet(args.issued_new))
+        result_indicies = compat_set.CompatSet(args.revoked_old).difference(args.issued_new)
         result_indicies.update(args.revoked_new)
         for nr in list(result_indicies):
             print(nr)
     else:
-        result_indicies = compat_set.CompatSet(args.issued_old).difference(compat_set.CompatSet(args.revoked_new))
+        result_indicies = compat_set.CompatSet(args.issued_old).difference(args.revoked_new)
         result_indicies.update(args.issued_new)
         for nr in list(result_indicies):
             print(nr)
