@@ -1,7 +1,7 @@
 mod ledger;
 
 use std::fs;
-use log::{info};
+use log::{debug, info};
 
 fn main() {
     env_logger::init();
@@ -21,7 +21,7 @@ fn main() {
         let list = ledger.test_ordering().unwrap();
         info!("Got {} results", list.len());
         for finding in list {
-            info!("[{}]: {}", finding.tx, finding)
+            debug!("[{}]: {}", finding.tx, finding)
         }
     }
 }

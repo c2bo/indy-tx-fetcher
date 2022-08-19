@@ -226,7 +226,7 @@ impl Ledger {
                                         Reply(data) => data,
                                         _ => "".to_string(),
                                     };
-                                    info!("State on ledger before: {}", res_before);
+                                    debug!("State on ledger before: {}", res_before);
 
                                     let request_after = request_builder.build_get_revoc_reg_delta_request(None, &RevocationRegistryId(id.to_string()), None, timestamp).unwrap();
                                     let (res_after,_) =  self.rt.block_on(perform_ledger_request(&self.pool, &request_after)).unwrap();
@@ -234,7 +234,7 @@ impl Ledger {
                                         Reply(data) => data,
                                         _ => "".to_string(),
                                     };
-                                    info!("State on ledger after: {}", res_after);
+                                    debug!("State on ledger after: {}", res_after);
                                 }
                             }
 
