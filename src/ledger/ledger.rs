@@ -155,6 +155,7 @@ impl Ledger {
         let mut problems: Vec<OrderingProblem> = Vec::<OrderingProblem>::new();
         let mut revocation_state: HashMap<String, RevRegState> = HashMap::new();
 
+        let mut counter = 0;
         for seq_no in 1..cur_size {
             let tx_raw = self.get(seq_no)?;
             let tx = TransactionReply::from_string(tx_raw.as_str())?;
@@ -238,7 +239,10 @@ impl Ledger {
                                 };
                                 debug!("State on ledger after: {}", res_after);
                             }
-                            info!("SeqNo={}", seq_no);
+                            counter = counter + 1;
+                            if counter % 100 == 0 {
+                                info!("SeqNo={}", seq_no);
+                            }
 
                             // TODO: Should we sort here? otherwise we will keep on getting repeat results for a state that was already not sorted
                             let res = res_old.to_owned();
